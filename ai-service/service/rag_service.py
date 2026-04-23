@@ -102,7 +102,6 @@ class RAGService:
         Args:
             content: 文档文本内容
             metadata: 文档元数据（如文件名、上传时间等）
-
         Returns:
             操作结果
         """
