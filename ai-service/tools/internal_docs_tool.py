@@ -1,10 +1,11 @@
 #导入chromadb客户端
-from clients.chroma_client import ChromaClient
+#from clients.chroma_client import ChromaClient
+from dependencies import chroma_client
 #导入配置
 from config import settings
 
 #创建chromadb的客户端实例 ragservice也创建了一个 后续可以优化为同一个
-_chroma_client = ChromaClient()
+#_chroma_client = ChromaClient()
 
 
 def query_internal_docs(query: str, top_k: int = None) -> dict:
@@ -39,7 +40,7 @@ def query_internal_docs(query: str, top_k: int = None) -> dict:
 
     try:
         #调用chromadb客户端搜索
-        results = _chroma_client.search(query,top_k=actual_top_k)
+        results = chroma_client.search(query,top_k=actual_top_k)
         if not results:
             return {
                 "status": "no_results",

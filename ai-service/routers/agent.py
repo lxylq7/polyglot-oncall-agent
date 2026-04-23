@@ -1,8 +1,7 @@
 from fastapi import APIRouter,HTTPException
 from schemas.response import AgentChatResponse
 from schemas.request import AgentChatRequest
-from service import agent_service
-from service.agent_service import AgentService
+from dependencies import agent_service
 #导入SSE流式响应支持
 from sse_starlette.sse import EventSourceResponse
 # 导入异步 IO
@@ -11,8 +10,8 @@ import asyncio
 #创建路由对象
 router = APIRouter()
 
-#初始化Agent服务
-agent_service = AgentService()
+#初始化Agent服务 全局单例 改用全局唯一实例
+#agent_service = AgentService()
 
 @router.post("/chat",response_model=AgentChatResponse)
 async def agent_chat(request:AgentChatRequest):

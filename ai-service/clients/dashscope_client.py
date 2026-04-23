@@ -20,16 +20,26 @@ class DashScopeClient:
         """
         model_name = model or settings.rag_model
 
-        #调用流式API
-        responses = dashscope.Generation.call(
+        #调用API
+        response = dashscope.Generation.call(
             model=model_name,
             prompt=prompt,
             max_tokens=2000,
             temperature=0.7
         )
 
-        #遍历流式响应
+        #直接返回字符串
+        return response.output.text
+
+    def generate_stream(self, prompt: str, model: str = None):
+        """流式：逐段返回"""
+        model_name = model or settings.rag_model
+        responses = dashscope.Generation.stream_call(
+            model=model_name,
+            prompt=prompt,
+            max_tokens=2000,
+            temperature=0.7
+        )
         for response in responses:
             if response.output:
-                #每次返回一个文本片段
                 yield response.output.text

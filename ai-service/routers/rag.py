@@ -3,7 +3,7 @@ from fastapi import HTTPException,APIRouter
 #导入请求和响应模型
 from schemas.response import RagQueryResponse
 from schemas.request import RagQueryRequest
-from service import rag_service
+from dependencies import rag_service
 #导入RAG服务
 from service.rag_service import RAGService
 #导入SSE流式响应支持
@@ -14,8 +14,8 @@ import asyncio
 #创建路由对象 后续所有接口都注册在这个对象上
 router = APIRouter()
 
-#初始化RAG服务 全局单例
-rag_service = RAGService()
+#初始化RAG服务 全局单例 改用全局唯一实例
+#rag_service = RAGService()
 
 @router.post("/query",response_model=RagQueryResponse)
 async def rag_query(request:RagQueryRequest):

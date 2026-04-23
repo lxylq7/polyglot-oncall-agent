@@ -1,15 +1,14 @@
 #导入客户端
-from clients.dashscope_client import DashScopeClient
-from clients.chroma_client import ChromaClient
+#from clients.dashscope_client import DashScopeClient
+#from clients.chroma_client import ChromaClient
 #导入配置
 from config import settings
-
 class RAGService:
     """RAG 检索增强生成服务"""
-    def __init__(self):
+    def __init__(self,dashscope_client,chroma_client):
         """初始化RAG服务 创建所需的客户端"""
-        self.dashscope = DashScopeClient() #大模型数据库
-        self.chroma = ChromaClient() #向量库数据库
+        self.dashscope = dashscope_client #大模型数据库
+        self.chroma = chroma_client #向量库数据库
 
     def query(self,question:str,history:list = None) -> dict:
         """
@@ -37,7 +36,7 @@ class RAGService:
         # 构建上下文
         # 将检索到的文档格式化为  【参考资料1】内容\n【参考资料2】内容
         context = "\n".join([
-            f"【参考资料{i + 1}】{result['content']}"
+            f"【参考资料{i + 1}】{result['document']}"
             for i, result in enumerate(results)
         ])
         #构建提示词
@@ -54,7 +53,7 @@ class RAGService:
         #返回结果
         return {
             "answer": answer,
-            "sources": [result['content'] for result in results]
+            "sources": [result['document'] for result in results]
         }
 
     def query_stream(self,question:str,history:list = None) -> dict:
@@ -93,7 +92,7 @@ class RAGService:
                 """.strip()
 
         #流式调用大模型生成答案
-        for chunk in self.dashscope.generate(prompt):
+        for chunk in self.dashscope.generate_stream(prompt):
             yield chunk
 
     def add_document(self,content:str,metadata:dict = None):

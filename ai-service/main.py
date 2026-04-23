@@ -3,7 +3,7 @@ from fastapi import FastAPI
 # 导入CORS中间件 允许跨域请求
 from fastapi.middleware.cors import CORSMiddleware
 # 导入路由模块
-from routers import rag, agent
+from routers import rag,agent
 # 导入配置
 from config import settings
 

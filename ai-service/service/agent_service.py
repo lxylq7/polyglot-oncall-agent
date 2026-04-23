@@ -1,19 +1,11 @@
-#导入RAG服务
-from service.rag_service import RAGService
-#导入工具
-from tools import date_time_tool
-from tools import query_metrics_tool
-#导入大模型客户端
-from clients.dashscope_client import DashScopeClient
-
 from tools.date_time_tool import get_current_date, get_current_datetime
 from tools.query_metrics_tool import query_prometheus_alerts
 
 
 class AgentService:
-    def __init__(self):
-        self.rag_service = RAGService()
-        self.dashscope = DashScopeClient()
+    def __init__(self,rag_service,dashscope_client):
+        self.rag_service = rag_service
+        self.dashscope = dashscope_client
 
     def chat(self,question:str) -> dict:
         """
@@ -58,7 +50,7 @@ class AgentService:
         elif "文档" in question or "知识" in question:
             result = self.rag_service.query(question)
             return {
-                "answer": result,
+                "answer": result["answer"],
                 "tool_used": "rag"
             }
 

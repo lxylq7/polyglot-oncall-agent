@@ -26,7 +26,7 @@ def query_prometheus_alerts() -> dict:
     #真实模式 调用prometheus api
     #构建api地址
     try:
-        api_url = f"{settings.PROMETHEUS_API_URL}/api/v1/alerts"
+        api_url = f"{settings.prometheus_url}/api/v1/alerts"
         response = requests.get(api_url,timeout=10)
         #检查http状态码
         response.raise_for_status()
