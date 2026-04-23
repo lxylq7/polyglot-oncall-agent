@@ -1,5 +1,4 @@
 import chromadb
-
 from config import settings
 from chromadb.config import Settings as ChromaSettings
 
