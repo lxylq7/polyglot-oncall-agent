@@ -20,7 +20,7 @@ def query_prometheus_alerts() -> dict:
             }
     """
     #检查是否需要使用模拟数据
-    if settings.PROMETHEUS_MOCK_ENABLED:
+    if settings.prometheus_mock_enabled:
         return _build_mock_alerts()
 
     #真实模式 调用prometheus api

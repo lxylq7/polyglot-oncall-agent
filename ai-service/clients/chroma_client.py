@@ -31,7 +31,7 @@ class ChromaClient:
     def search(self,query_text:str,top_k:int = 3) -> list:
         """搜索相似文档"""
         #query_text 要搜索的文档列表 n_results 返回的文本数量
-        results = self.collection.query(query_text=[query_text],n_results=top_k)
+        results = self.collection.query(query_texts=[query_text],n_results=top_k)
 
         #格式化结果 便于使用
         formatted_results = []

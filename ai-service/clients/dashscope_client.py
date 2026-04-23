@@ -1,5 +1,4 @@
 import dashscope
-from sympy.physics.units import temperature
 
 from config import settings
 
@@ -22,7 +21,7 @@ class DashScopeClient:
         model_name = model or settings.rag_model
 
         #调用流式API
-        responses = dashscope.Generation.stream_call(
+        responses = dashscope.Generation.call(
             model=model_name,
             prompt=prompt,
             max_tokens=2000,

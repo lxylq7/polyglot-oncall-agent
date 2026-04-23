@@ -80,7 +80,7 @@ class RAGService:
         # 构建上下文
         # 将检索到的文档格式化为  【参考资料1】内容\n【参考资料2】内容
         context = "\n".join([
-            f"【参考资料{i + 1}】{result['content']}"
+            f"【参考资料{i + 1}】{result['document']}"
             for i, result in enumerate(results)
         ])
         #构建提示词
@@ -107,4 +107,4 @@ class RAGService:
         """
         if metadata is None:
             metadata = {}
-            return self.chroma.add_documents([content],[metadata])
+        return self.chroma.add_documents([content],[metadata])

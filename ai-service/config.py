@@ -8,7 +8,7 @@ load_dotenv()
 #定义配置类
 class Settings(BaseSettings):
     #兜底的默认值 当环境变量 配置文件中没有时
-    
+
     # DashScope API Key
     dashscope_api_key: str
 
@@ -21,10 +21,10 @@ class Settings(BaseSettings):
     rag_model: str = "qwen3-max"
 
     # Server Configuration 服务器配置
-    server_port = 8000
+    server_port: int = 8000
 
     # Prometheus Configuration 普罗米修斯监控系统
-    prometheus_url ="http://localhost:9090"
+    prometheus_url: str ="http://localhost:9090"
     prometheus_mock_enabled: bool = True  # 是否启用Prometheus模拟数据
 
     #指定从.env文件读取

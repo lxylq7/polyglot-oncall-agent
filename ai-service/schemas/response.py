@@ -20,7 +20,7 @@ class AgentChatResponse(BaseModel):
     # answer AI生成的回答
     answer: str
     #tool_used 使用了哪个工具
-    tool_user: Optional[str] = None
+    tool_used: Optional[str] = None
     #success 是否成功 默认True
     success: bool = True
 

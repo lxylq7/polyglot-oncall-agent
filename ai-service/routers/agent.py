@@ -1,10 +1,4 @@
-#导入请求和响应模型
-from http.client import HTTPException
-from unittest import result
-
-from fastapi import APIRouter
-from pip._internal.cli import status_codes
-
+from fastapi import APIRouter,HTTPException
 from schemas.response import AgentChatResponse
 from schemas.request import AgentChatRequest
 from service import agent_service
@@ -31,14 +25,14 @@ async def agent_chat(request:AgentChatRequest):
     try:
         result = agent_service.chat(request.question)
         return AgentChatResponse(
-            answer=result["answers"],
+            answer=result["answer"],
             tool_used=result["tool_used"]
         )
     except Exception as e:
-        return HTTPException(status_code=500,detail=str(e))
+        raise HTTPException(status_code=500,detail=str(e))
 
 @router.post("/chat_stream")
-async def agent_chat(request:AgentChatRequest):
+async def agent_chat_stream(request:AgentChatRequest):
     """
     Agent 流式对话接口
     接收用户问题，流式返回 AI 生成的答案
@@ -48,7 +42,7 @@ async def agent_chat(request:AgentChatRequest):
     async def event_generator():
         #先获取完整答案
         result = agent_service.chat(request.question)
-        answer = result["answers"]
+        answer = result["answer"]
         #将答案分成字符 每次输出50个
         for i in range(0,len(answer),50):
             chunk = answer[i:i+50]

@@ -1,6 +1,5 @@
 #导入FastAPI的路由类
-from aiohttp.web_exceptions import HTTPException
-from fastapi import APIRouter
+from fastapi import HTTPException,APIRouter
 #导入请求和响应模型
 from schemas.response import RagQueryResponse
 from schemas.request import RagQueryRequest
@@ -39,7 +38,7 @@ async def rag_query(request:RagQueryRequest):
         raise HTTPException(status_code=500,detail=str(e))
 
 @router.post("/query_stream")
-async def rag_query(request:RagQueryRequest):
+async def rag_query_stream(request:RagQueryRequest):
     """
         RAG 流式问答接口
         接收用户问题，流式返回 AI 生成的答案（SSE 格式）
@@ -79,4 +78,4 @@ async def get_stats():
     返回知识库中的文档数量等信息
     响应：{"count": 10, "name": "document_chunks"}
     """
-    return rag_service.chroma.get_stats()
+    return rag_service.chroma.get_state()

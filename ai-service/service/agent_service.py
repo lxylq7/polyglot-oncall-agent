@@ -1,7 +1,4 @@
 #导入RAG服务
-from sqlalchemy.ext.asyncio import result
-from streamlit.elements import alert
-
 from service.rag_service import RAGService
 #导入工具
 from tools import date_time_tool
@@ -46,7 +43,7 @@ class AgentService:
             alerts = query_prometheus_alerts()
             if alerts.get("success"):
                 #提取告警名称列表
-                names = [a["alerts_name"] for a in alerts["alerts"]]
+                names = [a["alert_name"] for a in alerts["alerts"]]
                 return {
                     "answer": f"当前活跃告警：{', '.join(names)}",
                     "tool_used": "alerts"
@@ -62,7 +59,7 @@ class AgentService:
             result = self.rag_service.query(question)
             return {
                 "answer": result,
-                "tool_used": "rag_service"
+                "tool_used": "rag"
             }
 
         #其他情况 直接调用大模型回答
