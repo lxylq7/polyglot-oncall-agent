@@ -1,7 +1,7 @@
 import chromadb
 from config import settings
 from chromadb.config import Settings as ChromaSettings
-
+import uuid
 class ChromaClient:
     def __init__(self):
         #创建持久化客户端
@@ -23,7 +23,7 @@ class ChromaClient:
             metadatas = [{} for _ in documents]
         #如果没有提供id 自动生成
         if ids is None:
-            ids = [f"doc_{i}" for i in range(len(documents))]
+            ids = [str(uuid.uuid4()) for _ in documents]
         #调用ChromaDB API添加文档 ChromaDB会自动向量化文档
         self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
         return {"success":True,"count":len(documents)}

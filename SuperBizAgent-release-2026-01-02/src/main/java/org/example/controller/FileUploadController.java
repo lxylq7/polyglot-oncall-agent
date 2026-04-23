@@ -1,8 +1,8 @@
 package org.example.controller;
 
+import org.example.client.AiServiceClient;
 import org.example.config.FileUploadConfig;
 import org.example.dto.FileUploadRes;
-import org.example.service.VectorIndexService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class FileUploadController {
@@ -29,7 +30,7 @@ public class FileUploadController {
     private FileUploadConfig fileUploadConfig;
 
     @Autowired
-    private VectorIndexService vectorIndexService;
+    private AiServiceClient aiServiceClient;
 
     @PostMapping(value = "/api/upload", consumes = "multipart/form-data")
     public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
@@ -55,28 +56,23 @@ public class FileUploadController {
                 Files.createDirectories(uploadDir);
             }
 
-            // 使用原始文件名，而不是UUID，以便实现基于文件名的去重
             Path filePath = uploadDir.resolve(originalFilename).normalize();
-            
-            // 如果文件已存在，先删除旧文件（实现覆盖更新）
+
             if (Files.exists(filePath)) {
                 logger.info("文件已存在，将覆盖: {}", filePath);
                 Files.delete(filePath);
             }
-            
-            Files.copy(file.getInputStream(), filePath);
 
+            Files.copy(file.getInputStream(), filePath);
             logger.info("文件上传成功: {}", filePath);
 
-            // 文件上传成功后，自动调用向量索引服务
             try {
-                logger.info("开始为上传文件创建向量索引: {}", filePath);
-                vectorIndexService.indexSingleFile(filePath.toString());
-                logger.info("向量索引创建成功: {}", filePath);
+                logger.info("开始将文件内容添加到知识库: {}", filePath);
+                String content = Files.readString(filePath);
+                Map<String, Object> result = aiServiceClient.addDocument(content, originalFilename);
+                logger.info("知识库添加结果: {}", result);
             } catch (Exception e) {
-                logger.error("向量索引创建失败: {}, 错误: {}", filePath, e.getMessage(), e);
-                // 注意：即使索引失败，文件上传仍然成功，只是记录错误日志
-                // 可以根据业务需求决定是否要删除文件或返回错误
+                logger.error("知识库添加失败: {}, 错误: {}", filePath, e.getMessage(), e);
             }
 
             FileUploadRes response = new FileUploadRes(
@@ -85,12 +81,11 @@ public class FileUploadController {
                     file.getSize()
             );
 
-            // 使用统一的API响应格式
             ApiResponse<FileUploadRes> apiResponse = new ApiResponse<>();
             apiResponse.setCode(200);
             apiResponse.setMessage("success");
             apiResponse.setData(response);
-            
+
             return ResponseEntity.ok(apiResponse);
 
         } catch (IOException e) {
@@ -102,37 +97,17 @@ public class FileUploadController {
         }
     }
 
-    /**
-     * 统一 API 响应格式
-     */
     public static class ApiResponse<T> {
         private int code;
         private String message;
         private T data;
 
-        public int getCode() {
-            return code;
-        }
-
-        public void setCode(int code) {
-            this.code = code;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
-            this.message = message;
-        }
-
-        public T getData() {
-            return data;
-        }
-
-        public void setData(T data) {
-            this.data = data;
-        }
+        public int getCode() { return code; }
+        public void setCode(int code) { this.code = code; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public T getData() { return data; }
+        public void setData(T data) { this.data = data; }
     }
 
     private String getFileExtension(String filename) {

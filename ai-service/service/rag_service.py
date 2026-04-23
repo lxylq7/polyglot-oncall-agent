@@ -13,7 +13,7 @@ class RAGService:
     def query(self,question:str,history:list = None) -> dict:
         """
             执行 RAG 查询（非流式）
-                完整流程：
+                完整流程:
                 1. 在 ChromaDB 中搜索与问题最相似的文档
                 2. 将检索到的文档拼接成上下文
                 3. 将上下文和问题组合成提示词
@@ -59,7 +59,6 @@ class RAGService:
     def query_stream(self,question:str,history:list = None) -> dict:
         """
         执行 RAG 查询（流式）
-
         与 query() 流程相同，但使用流式大模型调用
         适合前端实时展示 AI 的回答过程
 
@@ -106,4 +105,5 @@ class RAGService:
         """
         if metadata is None:
             metadata = {}
+
         return self.chroma.add_documents([content],[metadata])

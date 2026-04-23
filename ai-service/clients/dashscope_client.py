@@ -32,7 +32,7 @@ class DashScopeClient:
         return response.output.text
 
     def generate_stream(self, prompt: str, model: str = None):
-        """流式：逐段返回"""
+        """流式 返回"""
         model_name = model or settings.rag_model
         responses = dashscope.Generation.stream_call(
             model=model_name,
