@@ -33,6 +33,19 @@ public class ChatController {
 
     private static final int MAX_WINDOW_SIZE = 6;
 
+    private boolean safeSend(SseEmitter emitter, SseMessage message,String scene) {
+        try {
+            emitter.send(SseEmitter.event() //构建一个sse事件 服务器主动推送时间
+                    .name("message") //事件名
+                    .data(message, MediaType.APPLICATION_JSON));
+            return true;
+        } catch (IOException e) {
+            logger.error("SSE发送失败 - {}", scene, e);
+            emitter.completeWithError(e);
+            return false;
+        }
+    }
+
     @PostMapping("/chat")
     public ResponseEntity<ApiResponse<ChatResponse>> chat(@RequestBody ChatRequest request) {
         try {
@@ -94,62 +107,45 @@ public class ChatController {
 
         if (request.getQuestion() == null || request.getQuestion().trim().isEmpty()) {
             logger.warn("问题内容为空");
-            try {
-                emitter.send(SseEmitter.event().name("message").data(SseMessage.error("问题内容不能为空"), MediaType.APPLICATION_JSON));
-                emitter.complete();
-            } catch (IOException e) {
-                emitter.completeWithError(e);
-            }
+            safeSend(emitter, SseMessage.error("问题内容不能为空"), "chat_stream");
+            emitter.complete();
             return emitter;
         }
-
-        executor.execute(() -> {
+        executor.execute(() -> { //开启新线程 不阻塞主线程
             try {
                 logger.info("收到流式对话请求 - SessionId: {}, Question: {}", request.getId(), request.getQuestion());
-
                 SessionInfo session = getOrCreateSession(request.getId());
                 List<Map<String, String>> history = session.getHistory();
-
-                Map<String, Object> result = aiServiceClient.agentChat(
-                        request.getId(), request.getQuestion(), history);
-
-                String answer = result != null && result.get("answer") != null
-                        ? result.get("answer").toString() : "抱歉，AI 服务暂时不可用";
-
-                int chunkSize = 50;
-                for (int i = 0; i < answer.length(); i += chunkSize) {
-                    int end = Math.min(i + chunkSize, answer.length());
-                    String chunk = answer.substring(i, end);
-
-                    emitter.send(SseEmitter.event()
-                            .name("message")
-                            .data(SseMessage.content(chunk), MediaType.APPLICATION_JSON));
-                }
-
-                session.addMessage(request.getQuestion(), answer);
+                StringBuilder fullAnswer = new StringBuilder();
+                aiServiceClient.agentChatStream(
+                        request.getId(),
+                        request.getQuestion(),
+                        history,
+                        chunk -> {  //java.util.function.Consumer<String> onChunk的具体实现
+                            fullAnswer.append(chunk);
+                            if (!safeSend(emitter,SseMessage.content(chunk),"chat_stream")) {
+                                return;
+                            }
+                        }
+                );
+                session.addMessage(request.getQuestion(), fullAnswer.toString());
                 logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}",
                         request.getId(), session.getMessagePairCount());
-
-                emitter.send(SseEmitter.event()
-                        .name("message")
-                        .data(SseMessage.done(), MediaType.APPLICATION_JSON));
+                if (!safeSend(emitter,SseMessage.done(),"chat_stream")) {
+                    return;
+                }
                 emitter.complete();
-
             } catch (Exception e) {
                 logger.error("流式对话失败", e);
-                try {
-                    emitter.send(SseEmitter.event()
-                            .name("message")
-                            .data(SseMessage.error(e.getMessage()), MediaType.APPLICATION_JSON));
-                } catch (IOException ex) {
-                    logger.error("发送错误消息失败", ex);
+                if (!safeSend(emitter,SseMessage.error(e.getMessage()),"chat_stream")) {
+                    return;
                 }
                 emitter.completeWithError(e);
             }
         });
-
         return emitter;
     }
+    private static final String REPORT_SEPARATOR = "\n\n" + new String(new char[60]).replace("\0", "=") + "\n";
 
     @PostMapping(value = "/ai_ops", produces = "text/event-stream;charset=UTF-8")
     public SseEmitter aiOps() {
@@ -159,44 +155,42 @@ public class ChatController {
             try {
                 logger.info("收到 AI 智能运维请求");
 
-                emitter.send(SseEmitter.event().name("message")
-                        .data(SseMessage.content("正在读取告警并拆解任务...\n"), MediaType.APPLICATION_JSON));
+                if (!safeSend(emitter,SseMessage.content("正在读取告警并拆解任务...\n"),"chat_stream")) {
+                    return;
+                }
+                StringBuilder reportBuilder = new StringBuilder();
 
-                Map<String, Object> result = aiServiceClient.agentChat(
-                        "aiops", "查询当前活动告警并分析根因", null);
-
-                String report = result != null && result.get("answer") != null
-                        ? result.get("answer").toString() : "告警分析失败";
-
-                emitter.send(SseEmitter.event().name("message")
-                        .data(SseMessage.content("\n\n" + "=".repeat(60) + "\n"), MediaType.APPLICATION_JSON));
-
-                emitter.send(SseEmitter.event().name("message")
-                        .data(SseMessage.content("📋 **告警分析报告**\n\n"), MediaType.APPLICATION_JSON));
-
-                int chunkSize = 50;
-                for (int i = 0; i < report.length(); i += chunkSize) {
-                    int end = Math.min(i + chunkSize, report.length());
-                    String chunk = report.substring(i, end);
-                    emitter.send(SseEmitter.event().name("message")
-                            .data(SseMessage.content(chunk), MediaType.APPLICATION_JSON));
+                if (!safeSend(emitter,SseMessage.content(REPORT_SEPARATOR),"chat_stream")) {
+                    return;
                 }
 
-                emitter.send(SseEmitter.event().name("message")
-                        .data(SseMessage.content("\n" + "=".repeat(60) + "\n\n"), MediaType.APPLICATION_JSON));
+                if (!safeSend(emitter,SseMessage.content("📋 **告警分析报告**\n\n"),"chat_stream")) {
+                    return;
+                }
 
-                emitter.send(SseEmitter.event().name("message")
-                        .data(SseMessage.done(), MediaType.APPLICATION_JSON));
+                aiServiceClient.agentChatStream(
+                        "aiops",
+                        "查询当前活动告警并分析根因",
+                        null,
+                        chunk -> {
+                            if (!safeSend(emitter,SseMessage.content(chunk),"chat_stream")) {
+                                return;
+                            }
+                            reportBuilder.append(chunk);
+                        }
+                );
+
+                if (!safeSend(emitter,SseMessage.content(REPORT_SEPARATOR),"chat_stream")) {
+                    return;
+                }
+                if (!safeSend(emitter,SseMessage.done(),"chat_stream")) {
+                    return;
+                }
                 emitter.complete();
 
             } catch (Exception e) {
                 logger.error("AI Ops 流程失败", e);
-                try {
-                    emitter.send(SseEmitter.event().name("message")
-                            .data(SseMessage.error("AI Ops 流程失败: " + e.getMessage()), MediaType.APPLICATION_JSON));
-                } catch (IOException ex) {
-                    logger.error("发送错误消息失败", ex);
-                }
+                safeSend(emitter,SseMessage.error("AI Ops 流程失败: " + e.getMessage()),"ai_ops");
                 emitter.completeWithError(e);
             }
         });
