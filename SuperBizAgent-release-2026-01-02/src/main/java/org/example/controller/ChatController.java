@@ -3,6 +3,7 @@ package org.example.controller;
 import lombok.Getter;
 import lombok.Setter;
 import org.example.client.AiServiceClient;
+import org.example.service.MemoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,9 @@ public class ChatController {
 
     @Autowired
     private AiServiceClient aiServiceClient;
+
+    @Autowired
+    private MemoryService memoryService;
 
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
@@ -57,7 +61,12 @@ public class ChatController {
             }
 
             SessionInfo session = getOrCreateSession(request.getId());
-            List<Map<String, String>> history = session.getHistory();
+
+            //List<Map<String, String>> history = session.getHistory();
+            List<Map<String, String>> sessionHistory = session.getHistory();
+            List<Map<String, String>> memoryHistory = memoryService.recallAsHistory(request.getId());
+            List<Map<String, String>> history = mergeHistory(sessionHistory, memoryHistory,20);
+
             logger.info("会话历史消息对数: {}", history.size() / 2);
 
             Map<String, Object> result = aiServiceClient.agentChat(
@@ -67,6 +76,7 @@ public class ChatController {
                     ? result.get("answer").toString() : "抱歉，AI 服务暂时不可用";
 
             session.addMessage(request.getQuestion(), answer);
+            memoryService.saveTurn(request.getId(),request.getQuestion(),answer);
             logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}",
                     request.getId(), session.getMessagePairCount());
 
@@ -115,7 +125,9 @@ public class ChatController {
             try {
                 logger.info("收到流式对话请求 - SessionId: {}, Question: {}", request.getId(), request.getQuestion());
                 SessionInfo session = getOrCreateSession(request.getId());
-                List<Map<String, String>> history = session.getHistory();
+                List<Map<String, String>> sessionHistory = session.getHistory();
+                List<Map<String, String>> memoryHistory = memoryService.recallAsHistory(request.getId());
+                List<Map<String, String>> history = mergeHistory(sessionHistory, memoryHistory,20);
                 StringBuilder fullAnswer = new StringBuilder();
                 aiServiceClient.agentChatStream(
                         request.getId(),
@@ -129,6 +141,7 @@ public class ChatController {
                         }
                 );
                 session.addMessage(request.getQuestion(), fullAnswer.toString());
+                memoryService.saveTurn(request.getId(),request.getQuestion(),fullAnswer.toString());
                 logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}",
                         request.getId(), session.getMessagePairCount());
                 if (!safeSend(emitter,SseMessage.done(),"chat_stream")) {
@@ -218,6 +231,28 @@ public class ChatController {
             logger.error("获取会话信息失败", e);
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    /**
+     *合并函数
+     */
+    private List<Map<String,String>> mergeHistory(
+            List<Map<String,String>> sessionHistory, //当前会话
+            List<Map<String,String>>memoryHistory, //历史记忆会话
+            int maxSize
+    ) {
+        List<Map<String,String>> merged = new ArrayList<>();
+        if (memoryHistory != null) {
+            merged.addAll(memoryHistory);
+        }
+        if (sessionHistory != null) {
+            merged.addAll(sessionHistory);
+        }
+        if (merged.size() > maxSize) {
+            return merged.subList(merged.size() - maxSize,merged.size());
+        }
+        return merged;
+
     }
 
     private SessionInfo getOrCreateSession(String sessionId) {

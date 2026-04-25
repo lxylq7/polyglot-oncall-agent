@@ -7,34 +7,53 @@ class AgentService:
         self.rag_service = rag_service
         self.dashscope = dashscope_client
 
-    def chat(self,question:str) -> dict:
+    def _build_prompt(self, question: str, history: list = None) -> str:
         """
-            Agent 对话逻辑
+        构建包含对话历史的完整提示词
+        Args:
+            question: 当前问题
+            history: 对话历史列表，格式: [{"role": "user/assistant", "content": "..."}]
+        Returns:
+            完整的提示词字符串
+        """
+        prompt = ""
+        
+        if history and len(history) > 0:
+            for item in history:
+                role = item.get("role", "").lower()
+                content = item.get("content", "")
+                if role == "user":
+                    prompt += f"用户：{content}\n"
+                elif role == "assistant":
+                    prompt += f"助手：{content}\n"
+        
+        prompt += f"用户：{question}\n助手："
+        return prompt
+
+    def chat(self, question: str, history: list = None) -> dict:
+        """
+            Agent 对话逻辑（支持对话记忆）
                 根据用户问题中的关键词，判断是否需要调用工具：
                 - 包含"时间"/"几点" → 调用时间工具
                 - 包含"告警"/"监控" → 调用告警查询工具
                 - 包含"文档"/"知识" → 调用 RAG 服务
-                - 其他 → 直接调用大模型回答
+                - 其他 → 直接调用大模型回答（带历史记录）
             Args:
                 question: 用户问题
+                history: 对话历史列表
             Returns:
                     "answer": "回答", "tool_used": "使用的工具名称"}
         """
-        #判断是否需要调用工具
         if "时间" in question or "几点" in question:
-            #调用时间工具'
             result = get_current_datetime()
             return {
                 "answer": result,
                 "tool_used": "date_time_tool"
             }
 
-        #判断是否需要调用告警工具
         elif "告警" in question or "监控" in question:
-            #调用告警查询工具
             alerts = query_prometheus_alerts()
             if alerts.get("success"):
-                #提取告警名称列表
                 names = [a["alert_name"] for a in alerts["alerts"]]
                 return {
                     "answer": f"当前活跃告警：{', '.join(names)}",
@@ -46,7 +65,6 @@ class AgentService:
                     "tool_used": "alerts"
                 }
 
-        #判断是否需要调用RAG服务
         elif "文档" in question or "知识" in question:
             result = self.rag_service.query(question)
             return {
@@ -54,9 +72,9 @@ class AgentService:
                 "tool_used": "rag"
             }
 
-        #其他情况 直接调用大模型回答
         else:
-            answer = self.dashscope.generate(question)
+            prompt = self._build_prompt(question, history)
+            answer = self.dashscope.generate(prompt)
             return {
                 "answer": answer,
                 "tool_used": None
