@@ -20,26 +20,59 @@ class DashScopeClient:
         """
         model_name = model or settings.rag_model
 
-        #调用API
-        response = dashscope.Generation.call(
-            model=model_name,
-            prompt=prompt,
-            max_tokens=2000,
-            temperature=0.7
-        )
+        try:
+            response = dashscope.Generation.call(
+                model=model_name,
+                prompt=prompt,
+                max_tokens=2000,
+                temperature=0.7
+            )
+            # response 对象包含：
+            # - response.status_code  # HTTP 状态码
+            # - response.output
+            #         "text": "回答内容",
+            #         "choices": [...],
+            #         "finish_reason": "stop"
+            # - response.usage        # 用量统计
 
-        #直接返回字符串
-        return response.output.text
+            #新结构
+            #output choices messages
+
+            output = getattr(response, "output", None)
+
+            #兼容旧字段
+            text = getattr(output, "text", None) if output else None
+            if text:
+                return text
+
+            #兼容新字段
+            choices = getattr(output,"choices", None) if output else None
+            if choices and len(choices) > 0:
+                msg = choices[0].get("message") if isinstance(choices[0], dict) else getattr(choices, "message", None)
+                if isinstance(msg, dict):
+                    content = msg.get("content")
+                else:
+                    content = getattr(msg, "content", None)
+                if content:
+                    return content
+                return "抱歉，我暂时无法回答这个问题。"
+        except Exception as e:
+            print(f"❌ DashScope API 调用失败: {e}")
+            return "抱歉，服务暂时不可用，请稍后重试。"
 
     def generate_stream(self, prompt: str, model: str = None):
         """流式 返回"""
         model_name = model or settings.rag_model
-        responses = dashscope.Generation.stream_call(
-            model=model_name,
-            prompt=prompt,
-            max_tokens=2000,
-            temperature=0.7
-        )
-        for response in responses:
-            if response.output:
-                yield response.output.text
+        try:
+            responses = dashscope.Generation.stream_call(
+                model=model_name,
+                prompt=prompt,
+                max_tokens=2000,
+                temperature=0.7
+            )
+            for response in responses:
+                if response.output and response.output.text:
+                    yield response.output.text
+        except Exception as e:
+            print(f"❌ DashScope 流式调用失败: {e}")
+            yield "抱歉，流式服务暂时不可用。"
